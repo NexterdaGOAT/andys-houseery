@@ -1,3 +1,4 @@
+
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const scoreEl = document.getElementById('score');
@@ -27,24 +28,42 @@ const baseMapLayout = [
 ];
 
 let islandMap = [];
-let player = { x: 1.5, y: 1.5, angle: 0.5, fov: Math.PI / 3, speed: 0.05, isShooting: false, weaponRecoil: 0, ammo: 7 };
+let player = { 
+    x: 1.5, 
+    y: 1.5, 
+    angle: 0.5, 
+    fov: Math.PI / 3, 
+    speed: 0.05, 
+    isShooting: false, 
+    weaponRecoil: 0, 
+    ammo: 7,
+    maxAmmo: 7,
+    isReloading: false,
+    reloadTimer: 0
+};
 
 // Andy config: Tailored as a tall, lanky 6th-grade boy
 let andy = { x: 14.5, y: 14.5, speed: 0.024, state: 'hunting', stunTimer: 0, heightModifier: 1.45, widthModifier: 0.40 };
 let batteries = [];
 let keys = {};
 let score = 0;
-
 function initializeLevel(level) {
     score = 0;
     if(scoreEl) scoreEl.innerText = score;
     if(levelEl) levelEl.innerText = level;
     
-    player.x = 1.5; player.y = 1.5; player.angle = 0.5; player.ammo = 7;
+    player.x = 1.5; player.y = 1.5; player.angle = 0.5; player.ammo = player.maxAmmo;
+    player.isReloading = false; player.reloadTimer = 0;
     andy.x = 14.5; andy.y = 14.5; andy.state = 'hunting';
     
-    // PROGRESSIVE DIFFICULTY: Andy's chase speed gets faster every level!
-    andy.speed = 0.022 + (level * 0.005); 
+    // EASIER EARLY LEVELS: Andy moves much slower on early levels, ramping up heavily later!
+    if (level === 1) {
+        andy.speed = 0.012; // Very slow, easy to manage and outrun
+    } else if (level === 2) {
+        andy.speed = 0.018; // Moderate speed
+    } else {
+        andy.speed = 0.022 + (level * 0.005); // Original aggressive curve for hard levels
+    }
 
     islandMap = [];
     for(let r = 0; r < MAP_SIZE; r++) {
@@ -55,7 +74,7 @@ function initializeLevel(level) {
         islandMap.push(row);
     }
 
-    // RANDOM DIFFICULTY: Battery spawn coordinates change location every single level
+    // FIXED EASY SPINS: Kept simple layouts for Levels 1 and 2
     batteries = [];
     if (level === 1) {
         batteries = [{x: 1.5, y: 13.5, collected: false}, {x: 13.5, y: 1.5, collected: false}, {x: 8.5, y: 9.5, collected: false}];
@@ -74,13 +93,14 @@ function initializeLevel(level) {
     }
 }
 initializeLevel(currentLevel);
+
 canvas.addEventListener('click', () => {
     if (gameState !== 'PLAYING') return;
     canvas.focus();
     if (!document.pointerLockElement) {
         canvas.requestPointerLock();
     } else {
-        if (player.isShooting || player.ammo <= 0) return;
+        if (player.isShooting || player.ammo <= 0 || player.isReloading) return;
         fireWeapon();
     }
 });
@@ -94,6 +114,14 @@ document.addEventListener('mousemove', (e) => {
 window.addEventListener('keydown', e => {
     let pressedKey = e.key.toLowerCase();
     keys[pressedKey] = true;
+    
+    // Trigger reload when 'R' is pressed, if not already full or reloading
+    if (pressedKey === 'r' && gameState === 'PLAYING') {
+        if (!player.isReloading && player.ammo < player.maxAmmo) {
+            player.isReloading = true;
+            player.reloadTimer = 90; // Takes 90 frames (~1.5 seconds) to reload
+        }
+    }
     
     if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault();
@@ -114,8 +142,9 @@ window.addEventListener('keydown', e => {
     }
 });
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
-
 function fireWeapon() {
+    if (player.isReloading) return; // Prevent shooting while reloading!
+    
     player.isShooting = true;
     player.weaponRecoil = 40;
     player.ammo--;
@@ -133,6 +162,7 @@ function fireWeapon() {
         andy.stunTimer = 150; 
     }
 }
+
 function update() {
     if (gameState !== 'PLAYING') return;
 
@@ -156,6 +186,15 @@ function update() {
     if (player.isShooting) {
         player.weaponRecoil -= 4;
         if (player.weaponRecoil <= 0) { player.weaponRecoil = 0; player.isShooting = false; }
+    }
+
+    // Handle Weapon Reload Progression
+    if (player.isReloading) {
+        player.reloadTimer--;
+        if (player.reloadTimer <= 0) {
+            player.ammo = player.maxAmmo;
+            player.isReloading = false;
+        }
     }
 
     for (let bat of batteries) {
@@ -198,7 +237,6 @@ function draw() {
     if (gameState === 'START_SCREEN') {
         ctx.fillStyle = '#100a05'; ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Custom 2D Illustration painting a lanky, tall 6th-grade kid shape
         ctx.fillStyle = '#050508'; ctx.fillRect(320, 150, 160, 300);
         ctx.fillStyle = '#e5cbbd'; ctx.fillRect(370, 180, 60, 60); 
         ctx.fillStyle = '#ffffff'; ctx.fillRect(385, 205, 6, 4); ctx.fillRect(410, 205, 6, 4); // Glowing eyes
@@ -208,7 +246,7 @@ function draw() {
         ctx.fillText("ANDY'S FACTORY", canvas.width / 2, 90);
         
         ctx.fillStyle = '#ffffff'; ctx.font = '14px Courier New';
-        ctx.fillText("Andy is a tall, lanky 6th grader stalking the wooden corridors.", canvas.width / 2, 480);
+        ctx.fillText("Andy is a tall, lanky 6th grader stalking the facility corridors.", canvas.width / 2, 480);
         ctx.fillText("Find all 3 hidden batteries. When he screams right behind you, DON'T PANIC.", canvas.width / 2, 510);
         
         ctx.fillStyle = '#00ffff'; ctx.font = 'bold 18px Courier New';
@@ -264,11 +302,14 @@ function draw() {
         let wallHeight = floor - ceiling;
         let brightness = Math.max(0, 1 - (correctedDist / 12));
 
-        // Wood Texture Renderer
-        ctx.fillStyle = `rgba(110, 65, 40, ${brightness})`; ctx.fillRect(i, ceiling, 1, wallHeight);
-        ctx.fillStyle = `rgba(45, 25, 15, ${brightness * 1.3})`; if (i % 35 === 0) ctx.fillRect(i, ceiling, 1, wallHeight);
-        if (Math.floor(ceiling + wallHeight) % 18 < 2) {
-            ctx.fillStyle = `rgba(55, 30, 18, ${brightness * 0.7})`; ctx.fillRect(i, ceiling, 1, wallHeight);
+        // Smooth Steel Wall Renderer
+        ctx.fillStyle = `rgba(130, 138, 145, ${brightness})`; 
+        ctx.fillRect(i, ceiling, 1, wallHeight);
+        
+        // Clean vertical steel panel grooves every 80px instead of random lines
+        if (i % 80 === 0) {
+            ctx.fillStyle = `rgba(50, 54, 57, ${brightness * 1.1})`; 
+            ctx.fillRect(i, ceiling, 2, wallHeight);
         }
     }
 
@@ -309,10 +350,14 @@ function draw() {
                 }
             }
         } else {
-            for (let col = 0; col < spriteSize; col++) {
+            // EASIER BATTERY RENDERER: Early levels give batteries a wider neon outline
+            let isEasyLevel = (currentLevel <= 2);
+            let renderWidth = isEasyLevel ? spriteSize * 1.4 : spriteSize;
+            for (let col = 0; col < renderWidth; col++) {
                 let pixelX = Math.floor(spriteScreenX + col);
                 if (pixelX >= 0 && pixelX < canvas.width && depthBuffer[pixelX] > dist) {
-                    ctx.fillStyle = `rgba(240, 240, 10, ${alpha})`; ctx.fillRect(pixelX, spriteScreenY + (spriteSize * 0.35), 1, spriteSize * 0.35);
+                    ctx.fillStyle = isEasyLevel ? `rgba(50, 255, 10, ${alpha * 1.5})` : `rgba(240, 240, 10, ${alpha})`; 
+                    ctx.fillRect(pixelX, spriteScreenY + (spriteSize * 0.35), 1, spriteSize * 0.35);
                 }
             }
         }
@@ -322,15 +367,35 @@ function draw() {
     lightGrad.addColorStop(0, 'rgba(255,255,235,0.06)'); lightGrad.addColorStop(0.5, 'rgba(0,0,0,0.55)'); lightGrad.addColorStop(1, 'rgba(0,0,0,0.98)');
     ctx.fillStyle = lightGrad; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // Compute closest battery distance context hints
+    let closestBatDist = 999;
+    for (let bat of batteries) {
+        if (!bat.collected) {
+            let d = Math.hypot(player.x - bat.x, player.y - bat.y);
+            if (d < closestBatDist) closestBatDist = d;
+        }
+    }
+    let batteryHint = "";
+    if (currentLevel <= 2) {
+        if (closestBatDist < 3) batteryHint = " | <span style='color:#55ff55;'>BATTERY: NEAR</span>";
+        else if (closestBatDist < 6) batteryHint = " | <span style='color:#ffff55;'>BATTERY: MEDIUM</span>";
+        else batteryHint = " | <span style='color:#ffaa00;'>BATTERY: FAR</span>";
+    }
+
+    let weaponStatus = `Ammo: ${player.ammo}/${player.maxAmmo}`;
+    if (player.isReloading) {
+        weaponStatus = `<span style="color:#ffaa00;">RELOADING...</span>`;
+    } else if (player.ammo === 0) {
+        weaponStatus = `<span style="color:#ff1111; font-weight:bold;">PRESS [R] TO RELOAD</span>`;
+    }
+
     let statsEl = document.getElementById('stats');
-    let ax = player.x - andy.x, ay = player.y - andy.y;
-    let distToAndy = Math.hypot(ax, ay);
     if (andy.state === 'stunned' && statsEl) {
-        statsEl.innerHTML = `Batteries: <span id="score">${score}</span>/3 | <span style="color:#00ffff;">STUNNED!</span>`;
-    } else if (distToAndy < 2.5 && statsEl) {
-        statsEl.innerHTML = `Batteries: <span id="score">${score}</span>/3 | <span style="color:#ff1111; font-weight:bold;">HE'S BEHIND YOU!</span>`;
+        statsEl.innerHTML = `${weaponStatus} | Batteries: <span id="score">${score}</span>/3${batteryHint} | <span style="color:#00ffff;">STUNNED!</span>`;
+    } else if (Math.hypot(player.x - andy.x, player.y - andy.y) < 2.5 && statsEl) {
+        statsEl.innerHTML = `${weaponStatus} | Batteries: <span id="score">${score}</span>/3 | <span style="color:#ff1111; font-weight:bold;">HE'S BEHIND YOU!</span>`;
     } else if (statsEl) {
-        statsEl.innerHTML = `Batteries: <span id="score">${score}</span>/3 | Escape Level: <span id="level">${currentLevel}</span>`;
+        statsEl.innerHTML = `${weaponStatus} | Batteries: <span id="score">${score}</span>/3${batteryHint} | Escape Level: <span id="level">${currentLevel}</span>`;
     }
 
     ctx.fillStyle = 'rgba(0, 255, 100, 0.7)'; ctx.fillRect(canvas.width / 2 - 2, canvas.height / 2 - 2, 4, 4);
@@ -342,11 +407,10 @@ function draw() {
     ctx.fillStyle = '#0a0a0d'; ctx.fillRect(gunX - 65, gunY + 5, 110, 32);
     if (player.isShooting && player.weaponRecoil > 25) {
         let flashGrad = ctx.createRadialGradient(gunX - 65, gunY + 21, 2, gunX - 65, gunY + 21, 55);
-        flashGrad.addColorStop(0, '#ffffff'); flashGrad.addColorStop(0.2, '#ffaa00'); flashGrad.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = flashGrad; ctx.beginPath(); ctx.arc(gunX - 65, gunY + 21, 55, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.restore();
+flashGrad.addColorStop(0, '#ffffff'); flashGrad.addColorStop(0.2, '#ffaa00'); flashGrad.addColorStop(1, 'rgba(0,0,0,0)');
+ctx.fillStyle = flashGrad; ctx.beginPath(); ctx.arc(gunX - 65, gunY + 21, 55, 0, Math.PI * 2); ctx.fill();
 }
-
+ctx.restore();
+}
 function loop() { update(); draw(); requestAnimationFrame(loop); }
 loop();
