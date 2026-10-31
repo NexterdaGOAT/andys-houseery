@@ -2,25 +2,83 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Andy's Factory - 3D Horror</title>
-    <!-- Links safely to your custom style properties -->
-    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            margin: 0;
+            background: #020202;
+            color: #ffffff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            text-align: center;
+            z-index: 10;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        h1 {
+            margin: 0 0 5px 0;
+            font-size: 1.6rem;
+            color: #ff3333;
+            letter-spacing: 3px;
+            text-shadow: 0 0 8px rgba(255,0,0,0.6);
+        }
+
+        #stats {
+            font-size: 1rem;
+            background: rgba(0,0,0,0.85);
+            padding: 6px 20px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            min-width: 300px;
+        }
+
+        canvas {
+            background: #000;
+            box-shadow: 0 0 50px rgba(0,0,0,0.95);
+            border: 2px solid #333;
+        }
+
+        #instructions {
+            position: absolute;
+            bottom: 15px;
+            font-size: 0.8rem;
+            color: #888;
+            text-align: center;
+            line-height: 1.4;
+            user-select: none;
+        }
+    </style>
 </head>
 <body>
 
     <div id="ui">
         <h1>ANDY'S FACTORY</h1>
-        <div id="stats">Batteries: <span id="score">0</span>/3 | Escape Level: <span id="level">1</span></div>
+        <!-- The JS engine dynamically injects steel facility states, live ammo clips, and nearby battery tracking signals here -->
+        <div id="stats">Loading System Interface...</div>
     </div>
 
+    <!-- Core 3D Raycasting Viewport Canvas -->
     <canvas id="gameCanvas" width="800" height="600"></canvas>
+
     <div id="instructions">
-        W,A,S,D to move/strafe. Move mouse to look around.<br>
-        Left-Click the screen to lock your mouse. Left-Click again to FIRE weapon.<br>
-        <strong>Press SPACEBAR to Start / Restart / Go to Next Level.</strong>
+        [W,A,S,D] Move/Strafe &bull; [Mouse] Look Around &bull; [Left-Click] Lock Mouse / Fire Stun Gun<br>
+        [R] Reload Clip &bull; [P] or [ESC] Pause Mission &bull; [SPACEBAR] Start or Reset Operation
     </div>
 
-    <!-- Links perfectly to your JavaScript code below -->
-    <script src="game.js"></script>
+    <!-- Cache Busting Query Tag (?v=1.3) forces browsers to bypass cache and load code updates instantly -->
+    <script src="game.js?v=1.3"></script>
+
 </body>
 </html>
